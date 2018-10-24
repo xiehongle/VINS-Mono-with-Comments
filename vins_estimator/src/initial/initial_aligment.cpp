@@ -1,5 +1,6 @@
 #include "initial_alignment.h"
 
+// refer to SfM results to calibrate bgs, then repropagate
 void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs)
 {
     Matrix3d A;
@@ -36,7 +37,7 @@ void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs)
     }
 }
 
-
+// find b1 b2 (orthogonal basis) on sphere with radius G
 MatrixXd TangentBasis(Vector3d &g0)
 {
     Vector3d b, c;
@@ -52,6 +53,7 @@ MatrixXd TangentBasis(Vector3d &g0)
     return bc;
 }
 
+// V-B-3
 void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, VectorXd &x)
 {
     Vector3d g0 = g.normalized() * G.norm();
@@ -122,6 +124,9 @@ void RefineGravity(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vector
     g = g0;
 }
 
+// V-B-2: V[0:n], gravity vector g, scale s
+// V-B-3: gravity refinement
+// gravity aligns Z-axis in the world frame
 bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, VectorXd &x)
 {
     int all_frame_count = all_image_frame.size();
@@ -198,8 +203,10 @@ bool LinearAlignment(map<double, ImageFrame> &all_image_frame, Vector3d &g, Vect
 
 bool VisualIMUAlignment(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs, Vector3d &g, VectorXd &x)
 {
+    // V-B-1
     solveGyroscopeBias(all_image_frame, Bgs);
 
+    // obtain V, g, s
     if(LinearAlignment(all_image_frame, g, x))
         return true;
     else 

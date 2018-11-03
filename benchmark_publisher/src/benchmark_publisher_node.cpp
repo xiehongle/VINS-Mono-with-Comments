@@ -52,6 +52,7 @@ struct Data
     float ax, ay, az;
 };
 int idx = 1;
+int est_idx = 0;
 vector<Data> benchmark;
 
 ros::Publisher pub_odom;
@@ -63,15 +64,19 @@ Quaterniond baseRgt;
 Vector3d baseTgt;
 tf::Transform trans;
 
+int iter = 0;
+double err_T = 0.0, err_R = 0.0;
+
 void odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
 {
-    //ROS_INFO("odom callback!");
+    // ROS_INFO("odom callback!");
     if (odom_msg->header.stamp.toSec() > benchmark.back().t)
       return;
   
     for (; idx < static_cast<int>(benchmark.size()) && benchmark[idx].t <= odom_msg->header.stamp.toSec(); idx++)
         ;
 
+    est_idx++;
 
     if (init++ < SKIP)
     {
@@ -108,6 +113,25 @@ void odom_callback(const nav_msgs::OdometryConstPtr &odom_msg)
     odometry.pose.pose.orientation.x = tmp_R.x();
     odometry.pose.pose.orientation.y = tmp_R.y();
     odometry.pose.pose.orientation.z = tmp_R.z();
+
+    ROS_WARN_STREAM("EST, benchmark id and current timestamp: " << est_idx << " " << idx << " " << odom_msg->header.stamp.toSec());
+    ROS_WARN_STREAM("EST P: " << odom_msg->pose.pose.position.x << " " << odom_msg->pose.pose.position.y << " " << odom_msg->pose.pose.position.z);
+    ROS_WARN_STREAM("GT P: " << tmp_T.x() << " " << tmp_T.y() << " " << tmp_T.z());
+    ROS_WARN_STREAM("EST R: " << odom_msg->pose.pose.orientation.w << " " << odom_msg->pose.pose.orientation.x << " " << odom_msg->pose.pose.orientation.y << " " << odom_msg->pose.pose.orientation.z);
+    ROS_WARN_STREAM("GT R: " << tmp_R.w() << " " << tmp_R.x() << " " << tmp_R.y() << " " << tmp_R.z());
+    ROS_WARN_STREAM("-----------------------------------------------");
+
+    iter++;
+    err_T = err_T + sqrt((tmp_T.x() - odom_msg->pose.pose.position.x) * (tmp_T.x() - odom_msg->pose.pose.position.x) 
+                       + (tmp_T.y() - odom_msg->pose.pose.position.y) * (tmp_T.y() - odom_msg->pose.pose.position.y) 
+                       + (tmp_T.z() - odom_msg->pose.pose.position.z) * (tmp_T.z() - odom_msg->pose.pose.position.z));
+    err_R = err_R + sqrt((tmp_R.w() - odom_msg->pose.pose.orientation.w) * (tmp_R.w() - odom_msg->pose.pose.orientation.w)
+                       + (tmp_R.x() - odom_msg->pose.pose.orientation.x) * (tmp_R.x() - odom_msg->pose.pose.orientation.x)
+                       + (tmp_R.y() - odom_msg->pose.pose.orientation.y) * (tmp_R.y() - odom_msg->pose.pose.orientation.y)
+                       + (tmp_R.z() - odom_msg->pose.pose.orientation.z) * (tmp_R.z() - odom_msg->pose.pose.orientation.z));
+
+    ROS_WARN_STREAM("Translation and Rotation RMSE: " << err_T/iter << " " << err_R/iter);
+    ROS_WARN_STREAM("-----------------------------------------------");
 
     Vector3d tmp_V = baseRgt * Vector3d{benchmark[idx - 1].vx,
                                         benchmark[idx - 1].vy,

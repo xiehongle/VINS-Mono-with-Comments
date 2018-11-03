@@ -112,17 +112,17 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
 
 void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const std_msgs::Header &header)
 {
-    ROS_DEBUG("new image coming ------------------------------------------");
-    ROS_DEBUG("Adding feature points %lu", image.size());
+    ROS_INFO("new image coming ------------------------------------------");
+    ROS_INFO("Adding feature points %lu", image.size());
     if (f_manager.addFeatureCheckParallax(frame_count, image, td))
         marginalization_flag = MARGIN_OLD;
     else
         marginalization_flag = MARGIN_SECOND_NEW;
 
-    ROS_DEBUG("this frame is--------------------%s", marginalization_flag ? "reject" : "accept");
-    ROS_DEBUG("%s", marginalization_flag ? "Non-keyframe" : "Keyframe");
-    ROS_DEBUG("Solving %d", frame_count);
-    ROS_DEBUG("number of feature: %d", f_manager.getFeatureCount());
+    ROS_INFO("this frame is--------------------%s", marginalization_flag ? "reject" : "accept");
+    ROS_INFO("%s", marginalization_flag ? "Non-keyframe" : "Keyframe");
+    ROS_INFO("Solving %d", frame_count);
+    ROS_INFO("number of feature: %d", f_manager.getFeatureCount());
     Headers[frame_count] = header;
 
     ImageFrame imageframe(image, header.stamp.toSec());
@@ -156,6 +156,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             if( ESTIMATE_EXTRINSIC != 2 && (header.stamp.toSec() - initial_timestamp) > 0.1)
             {
                result = initialStructure();
+               ROS_WARN_STREAM("call initialStructure() result: " << result);
                initial_timestamp = header.stamp.toSec();
             }
             if(result)
@@ -273,6 +274,9 @@ bool Estimator::initialStructure()
         }
         sfm_f.push_back(tmp_feature);
     } 
+
+    ROS_WARN_STREAM("sfm_f size " << sfm_f.size());
+
     Matrix3d relative_R;
     Vector3d relative_T;
     int l;
@@ -283,13 +287,20 @@ bool Estimator::initialStructure()
         ROS_INFO("Not enough features or parallax; Move device around");
         return false;
     }
+
+    ROS_WARN_STREAM("frame index l " << l);
+    ROS_WARN_STREAM("relative_R " << relative_R);
+    ROS_WARN_STREAM("relative_T " << relative_T);
+
+    ROS_WARN_STREAM("frame_count + 1: " << (frame_count + 1));
+
     // 3. sfm.construct, global sfm, initialize all frames' poses and features' 3D positions
     GlobalSFM sfm;
     if(!sfm.construct(frame_count + 1, Q, T, l,
               relative_R, relative_T,
               sfm_f, sfm_tracked_points))
     {
-        ROS_DEBUG("global SFM failed!");
+        ROS_INFO("global SFM failed!");
         marginalization_flag = MARGIN_OLD;
         return false;
     }
@@ -346,12 +357,12 @@ bool Estimator::initialStructure()
         if(pts_3_vector.size() < 6)
         {
             cout << "pts_3_vector size " << pts_3_vector.size() << endl;
-            ROS_DEBUG("Not enough points for solve pnp !");
+            ROS_INFO("Not enough points for solve pnp !");
             return false;
         }
         if (! cv::solvePnP(pts_3_vector, pts_2_vector, K, D, rvec, t, 1))
         {
-            ROS_DEBUG("solve pnp fail!");
+            ROS_INFO("solve pnp fail!");
             return false;
         }
         cv::Rodrigues(rvec, r);
@@ -490,10 +501,15 @@ bool Estimator::relativePose(Matrix3d &relative_R, Vector3d &relative_T, int &l)
 
             }
             average_parallax = 1.0 * sum_parallax / int(corres.size());
+
+            ROS_WARN_STREAM("i " << i);
+            ROS_WARN_STREAM("average_parallax " << average_parallax);
+
             if(average_parallax * 460 > 30 && m_estimator.solveRelativeRT(corres, relative_R, relative_T))
             {
                 l = i;
-                ROS_DEBUG("average_parallax %f choose l %d and newest frame to triangulate the whole structure", average_parallax * 460, l);
+                ROS_WARN_STREAM("l " << i);
+                ROS_INFO("average_parallax %f choose l %d and newest frame to triangulate the whole structure", average_parallax * 460, l);
                 return true;
             }
         }

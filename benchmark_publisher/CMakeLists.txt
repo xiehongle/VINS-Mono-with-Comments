@@ -4,6 +4,7 @@ project(benchmark_publisher)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11 -DEIGEN_DONT_PARALLELIZE")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g -rdynamic")
+# set(CMAKE_CXX_FLAGS_DEBUG "-Wall -g")
 
 
 find_package(catkin REQUIRED COMPONENTS
